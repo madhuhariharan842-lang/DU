@@ -1,11 +1,5 @@
 {
     "intersection_name": "Main St & 1st Ave",
-    "camera_sources": {
-        "north": "camera_north.mp4",
-        "south": "camera_south.mp4", 
-        "east": "camera_east.mp4",
-        "west": "camera_west.mp4"
-    },
     "detection_confidence": 0.5,
     "esp32_cam_url": "http://10.85.222.56/"
 }
