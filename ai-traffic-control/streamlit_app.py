@@ -6,9 +6,8 @@ import plotly.graph_objects as go
 import time
 import json
 from datetime import datetime, timedelta
-import cv2
-from yolo_detection import TrafficMonitor
-from adaptive_signal import AdaptiveSignalController
+import requests
+from io import BytesIO
 
 # Page configuration
 st.set_page_config(
@@ -55,10 +54,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state
-if 'traffic_monitor' not in st.session_state:
-    st.session_state.traffic_monitor = TrafficMonitor()
-if 'signal_controller' not in st.session_state:
-    st.session_state.signal_controller = AdaptiveSignalController()
 if 'traffic_history' not in st.session_state:
     st.session_state.traffic_history = []
 if 'emergency_active' not in st.session_state:
@@ -76,18 +71,12 @@ def load_config():
     except FileNotFoundError:
         return {
             "intersection_name": "Main St & 1st Ave",
-            "camera_sources": {
-                "north": "camera_north.mp4",
-                "south": "camera_south.mp4", 
-                "east": "camera_east.mp4",
-                "west": "camera_west.mp4"
-            },
             "detection_confidence": 0.5,
             "esp32_cam_url": "http://10.85.222.56/"
         }
 
 def simulate_vehicle_detection():
-    """Simulate YOLO vehicle detection (replace with real detection)"""
+    """Simulate vehicle detection"""
     base_counts = {
         'north': np.random.randint(8, 18),
         'south': np.random.randint(6, 15), 
@@ -138,6 +127,14 @@ def display_esp32_cam_feed():
     except Exception as e:
         st.error(f"Error displaying camera feed: {str(e)}")
 
+def check_camera_connection():
+    """Check if ESP32-CAM is accessible"""
+    try:
+        response = requests.get(st.session_state.esp32_cam_url, timeout=5)
+        return response.status_code == 200
+    except:
+        return False
+
 def main():
     config = load_config()
     
@@ -169,7 +166,7 @@ def main():
             st.success("✅ AI is controlling traffic signals automatically")
             algorithm = st.selectbox(
                 "AI Algorithm", 
-                ["YOLO + Adaptive Timing", "Reinforcement Learning", "Genetic Algorithm"],
+                ["Adaptive Timing", "Reinforcement Learning", "Genetic Algorithm"],
                 help="Select the AI algorithm for traffic optimization"
             )
             
@@ -191,6 +188,10 @@ def main():
             st.session_state.esp32_cam_url,
             help="Enter the URL for your ESP32-CAM live stream"
         )
+        
+        # Check camera connection
+        cam_status = check_camera_connection()
+        st.write(f"Camera Status: {'🟢 Connected' if cam_status else '🔴 Disconnected'}")
         
         # Emergency Controls
         st.subheader("🚨 Emergency Controls")
@@ -215,7 +216,7 @@ def main():
         
         # System Information
         st.subheader("ℹ️ System Info")
-        st.info(f"Model: YOLOv8n\nAccuracy: 94.2%\nStatus: Online\nLast Update: {datetime.now().strftime('%H:%M:%S')}")
+        st.info(f"Status: {'Online' if cam_status else 'Offline'}\nLast Update: {datetime.now().strftime('%H:%M:%S')}")
 
     # Main Dashboard
     # Real-time Metrics
@@ -293,7 +294,6 @@ def main():
         st.write(f"{ew_signal} **East-West**: {ew_timer}s")
         
         st.subheader("🤖 AI Status")
-        st.success("✅ YOLO Detection: Active")
         st.success("✅ Adaptive Control: Active") 
         st.info(f"🧠 Confidence: {confidence_threshold*100:.1f}%")
         st.info(f"🔄 Processing: {np.random.randint(28, 35)} FPS")
@@ -376,89 +376,7 @@ def main():
         )
         fig_pie.update_layout(height=350)
         st.plotly_chart(fig_pie, use_container_width=True)
-    
-    # Performance Metrics
-    st.subheader("⚡ System Performance Metrics")
-    perf_col1, perf_col2, perf_col3, perf_col4 = st.columns(4)
-    
-    with perf_col1:
-        detection_acc = round(94.2 + np.random.uniform(-2, 2), 1)
-        st.metric("🎯 Detection Accuracy", f"{detection_acc}%", delta="↑ 2.1%")
-    
-    with perf_col2:
-        response_time = round(1.8 + np.random.uniform(-0.5, 0.3), 1)
-        st.metric("⚡ Response Time", f"{response_time}s", delta="↓ 0.3s")
-    
-    with perf_col3:
-        throughput = round(87.5 + np.random.uniform(-5, 8), 1)
-        st.metric("🚚 Traffic Throughput", f"{throughput}%", delta="↑ 12.3%")
-    
-    with perf_col4:
-        emission_reduction = round(15.6 + np.random.uniform(-2, 4), 1)
-        st.metric("🌱 Emission Reduction", f"{emission_reduction}%", delta="↑ 3.2%")
-    
-    # Implementation Guide
-    with st.expander("🚀 Implementation Guide & Next Steps"):
-        tab1, tab2, tab3 = st.tabs(["Hardware Setup", "Software Config", "Deployment"])
-        
-        with tab1:
-            st.markdown("""
-            **Required Hardware:**
-            - 4x IP Cameras (minimum 1080p, night vision recommended)
-            - Edge Computing Device (Raspberry Pi 4+ or Intel NUC)
-            - Traffic Signal Controllers (with API/RS485 interface)
-            - Network Switch and UPS backup
-            - ESP32-CAM for additional monitoring
-            
-            **Camera Placement:**
-            - Mount cameras 15-20 feet high for optimal detection
-            - 45-degree angle pointing toward intersection
-            - Weatherproof housings required
-            - Ensure clear view of all vehicle lanes
-            """)
-        
-        with tab2:
-            st.markdown("""
-            **Software Configuration:**
-            ```json
-            {
-                "camera_sources": {
-                    "north": "rtsp://camera1_ip/stream",
-                    "south": "rtsp://camera2_ip/stream", 
-                    "east": "rtsp://camera3_ip/stream",
-                    "west": "rtsp://camera4_ip/stream"
-                },
-                "esp32_cam_url": "http://10.85.222.56/"
-            }
-            ```
-            
-            **Signal Controller Integration:**
-            - Configure controller IP addresses
-            - Set up API endpoints for signal control
-            - Test manual override functionality
-            """)
-        
-        with tab3:
-            st.markdown("""
-            **Deployment Options:**
-            
-            1. **Local Edge Device:**
-               ```bash
-               pip install -r requirements.txt
-               streamlit run streamlit_app.py --server.port 8501
-               ```
-            
-            2. **Cloud Deployment:**
-               - Streamlit Cloud (free tier available)
-               - AWS EC2 with GPU for better performance
-               - Google Cloud Run for scalable deployment
-            
-            3. **Production Setup:**
-               - Use Docker containers for reliability
-               - Set up monitoring and alerting
-               - Configure SSL certificates for security
-            """)
-    
+
     # Auto-refresh
     time.sleep(5)
     st.rerun()
